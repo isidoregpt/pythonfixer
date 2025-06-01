@@ -1,0 +1,12 @@
+# Core dependencies for Python ScriptFixer Agent
+streamlit>=1.40.0
+openai>=1.55.0
+openai-agents>=0.0.16
+
+# Optional: For better compatibility
+python-dotenv>=1.0.0
+
+# Development tools (optional)
+# pytest>=7.0.0
+# black>=23.0.0
+# flake8>=6.0.0
