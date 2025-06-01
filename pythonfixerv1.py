@@ -34,9 +34,8 @@ def test_tools_import():
 AGENTS_SUCCESS, Agent, Runner = test_agents_import()
 TOOLS_SUCCESS, LocalShellTool = test_tools_import()
 
-# Fallback imports if agents framework fails
-if not AGENTS_SUCCESS:
-    from openai import AsyncOpenAI
+# Always import AsyncOpenAI for fallback scenarios
+from openai import AsyncOpenAI
 
 # Debug information
 print(f"🔍 Debug Info:")
@@ -114,9 +113,26 @@ ERROR LOG:
                 fixed_code = result.final_output
             except Exception as e:
                 print(f"❌ Agents framework failed: {e}")
-                # Fallback to direct API
-                client = AsyncOpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-                response = await client.chat.completions.create(
+                # Fallback to direct API - ensure we have AsyncOpenAI
+                try:
+                    client = AsyncOpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+                    response = await client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "system", "content": "You are an expert Python developer. Fix broken code and return only the corrected Python code without explanations or markdown."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.1
+                    )
+                    fixed_code = response.choices[0].message.content.strip()
+                except Exception as fallback_error:
+                    st.error(f"Both agents framework and direct API failed: {fallback_error}")
+                    return ""
+        else:
+            print("📱 Using direct OpenAI API for fixing...")
+            # Direct OpenAI API - agent should be AsyncOpenAI instance
+            try:
+                response = await agent.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You are an expert Python developer. Fix broken code and return only the corrected Python code without explanations or markdown."},
@@ -125,18 +141,9 @@ ERROR LOG:
                     temperature=0.1
                 )
                 fixed_code = response.choices[0].message.content.strip()
-        else:
-            print("📱 Using direct OpenAI API for fixing...")
-            # Direct OpenAI API
-            response = await agent.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are an expert Python developer. Fix broken code and return only the corrected Python code without explanations or markdown."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1
-            )
-            fixed_code = response.choices[0].message.content.strip()
+            except Exception as api_error:
+                st.error(f"Direct API call failed: {api_error}")
+                return ""
 
         # Clean up markdown if present
         if fixed_code.startswith("```python"):
